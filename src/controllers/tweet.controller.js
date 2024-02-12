@@ -7,6 +7,10 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 
 const createTweet = asyncHandler(async (req, res) => {
     //TODO: create tweet
+    const {userId} = req.params
+    if(!userId){
+        throw new ApiEr
+    }
 })
 
 const getUserTweets = asyncHandler(async (req, res) => {
