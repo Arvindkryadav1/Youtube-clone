@@ -218,7 +218,9 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     video.isPublished = !video.isPublished
     await video.save()
 
-    return res.status(200).json(200, {}, "Toggle Publish status successfully")
+    return res
+    .status(200)
+    .json(200, {}, "Toggle Publish status successfully")
 })
 
 export {
