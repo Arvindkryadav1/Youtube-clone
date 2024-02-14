@@ -4,7 +4,7 @@ import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary, deleteFromCloudinary, deleteVideo} from "../utils/cloudinary.js"
+import {uploadOnCloudinary, deleteFromCloudinary, deleteVideoFromCloudinary} from "../utils/cloudinary.js"
 import { extractPublicId } from "cloudinary-build-url"
 
 
@@ -150,17 +150,75 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
 
     const thumbnailPublicId = extractPublicId(oldThumbnailURL)
-    const deletedOldThumbnail = await deleteFromCl
+    const deletedOldThumbnail = await deleteFromCloudinary(thumbnailPublicId)
+    if(!deletedOldThumbnail){
+        throw new ApiError(400, "Error while deleting old thumbnail from cloudinary")
+    }
+
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $set:{
+                thumbnail: thumbnail.url,
+                title,
+                description,
+            },
+        },
+        {
+            new: true
+        }
+    )
+    return res
+             .status(200)
+             .json(200, video, "Video updated successfully")
 
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: delete video
+    if(!videoId){
+        throw new ApiError(400, "Video id is required")
+    }
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Invalid video id")
+    }
+
+    const deletedVideo = await Video.findByIdAndDelete(videoId)
+    if(!deletedVideo){
+        throw new ApiError(500, "Something went wrong while deleting the video")
+    }
+    // delete video from cloudinary
+    const videoPublicId = extractPublicId(deletedVideo.videoFile)
+    const videoFile = await deleteVideoFromCloudinary(videoPublicId)
+    if(!videoFile){
+        500, "Something went wrong while deleting video from cloudinary"
+    }
+    // deleting thumbnail from cloudinary
+    const tpid = extractPublicId(deletedVideo.thumbnail)
+    const thumbnailFile = await deleteFromCloudinary(tpid)
+    if(!thumbnailFile){
+        throw new ApiError(500, " Something went wrong while deleting thumbnail from cloudinary")
+    }
+    return res
+           .status(200)
+           .json(200, {}, "Video deleted successfully")
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if(!videoId){
+        throw new ApiError(400, "No video id found")
+    }
+    if(isValidObjectId(videoId)){
+        throw new ApiError(400, "Video id is not valid")
+    }
+
+    const video = await Video.findById(videoId)
+    video.isPublished = !video.isPublished
+    await video.save()
+
+    return res.status(200).json(200, {}, "Toggle Publish status successfully")
 })
 
 export {
